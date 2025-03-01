@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Apply smooth transition to background change */
+body {
+  transition: background 0.3s ease;
+}
+
+/* Keep a neutral off-white background */
+body, .min-h-screen {
+  background-color: #f9fafb; /* Off-white background */
+}
+
+/* Smooth fade-in effect for text */
+pre {
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
