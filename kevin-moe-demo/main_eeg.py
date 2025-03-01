@@ -22,47 +22,44 @@ Your goal is to educate the user while maintaining their engagement by dynamical
 """
 
 class EEGEnhancedLLM:
-    def __init__(self, model_path="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", 
-                 use_cuda=True, simulation_mode=True, enable_visualization=True, eeg_debug_output=False):
+    def __init__(self, model_path="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", use_cuda=True, simulation_mode=True, enable_visualization=True, eeg_debug_output=False, max_new_tokens=150):
         """
-        Initialize the EEG-enhanced LLM system
+        Initialize the EEG-Enhanced LLM
         
         Args:
-            model_path: Path to the model
-            use_cuda: Whether to use CUDA for model inference
+            model_path: Path to the language model
+            use_cuda: Whether to use CUDA if available
             simulation_mode: Whether to use simulated EEG data
             enable_visualization: Whether to enable visualization
-            eeg_debug_output: Whether to enable debug output from the EEG processor
+            eeg_debug_output: Whether to print EEG debug info
+            max_new_tokens: Maximum number of new tokens to generate
         """
         self.device = "cuda" if torch.cuda.is_available() and use_cuda else "cpu"
-        print(f"Loading model from {model_path} to {self.device}...")
+        self.model_path = model_path
+        self.simulation_mode = simulation_mode
+        self.enable_visualization = enable_visualization
+        self.eeg_debug_output = eeg_debug_output
+        self.max_new_tokens = max_new_tokens
         
-        # Load tokenizer and model
-        self.tokenizer = AutoTokenizer.from_pretrained(model_path)
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_path, 
-            torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-            weights_only=False  # Fix for PyTorch 2.6+ compatibility issue
-        ).to(self.device)
+        # Initialize the tokenizer first (needed for other components)
+        try:
+            # Load tokenizer
+            print(f"Loading tokenizer from {model_path}...")
+            self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+        except Exception as e:
+            print(f"Error loading tokenizer: {e}")
+            print("Falling back to default tokenizer...")
+            # Fallback to a simpler tokenizer that's likely to be available
+            self.tokenizer = AutoTokenizer.from_pretrained("facebook/opt-125m")
         
-        # Initialize EEG processor
+        # Initialize the EEG processor
         self.eeg_processor = EEGProcessor(
             simulation_mode=simulation_mode,
             enable_visualization=enable_visualization,
             debug_output=eeg_debug_output
         )
         
-        # Initialize MoE controller
-        self.moe_controller = AttentionBasedMoEController(
-            tokenizer=self.tokenizer,
-            visualization=enable_visualization
-        )
-        
-        # Set up generation parameters
-        self.max_new_tokens = 250
-        self.stopping_criteria = None
-        
-        # Track token generation stats
+        # Initialize generation statistics
         self.generation_stats = {
             "tokens_generated": 0,
             "avg_attention": 0.0,
@@ -70,14 +67,53 @@ class EEGEnhancedLLM:
             "expert_usage": {}
         }
         
-        # Cache for faster generation
-        self.cached_past_key_values = None
-        self.cached_input_ids = None
+        # Initialize the MoE controller
+        self.moe_controller = AttentionBasedMoEController(
+            self.tokenizer,
+            visualization=enable_visualization
+        )
         
         # Initialize the EEG processor
         self.eeg_processor.start()
         
-        print("EEG-Enhanced LLM initialized and ready!")
+        # Initialize the model and tokenizer
+        self.initialize_model()
+
+    def initialize_model(self):
+        """Initialize the model and tokenizer"""
+        print(f"Loading model from {self.model_path} to {self.device}...")
+        
+        try:
+            # Initialize the model with compatibility options
+            model_kwargs = {
+                'torch_dtype': torch.float16 if self.device == "cuda" else torch.float32,
+            }
+            
+            # Add legacy compatibility for older transformers versions
+            try:
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    self.model_path, 
+                    **model_kwargs
+                ).to(self.device)
+            except Exception as model_error:
+                print(f"Error with standard loading: {model_error}")
+                # Try with fewer options
+                print("Attempting simplified model loading...")
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    self.model_path, 
+                    low_cpu_mem_usage=True
+                ).to(self.device)
+                
+            # Initialize the cache for KV-caching
+            self.cached_past_key_values = None
+            
+            print("EEG-Enhanced LLM initialized and ready!")
+            return True
+        except Exception as e:
+            print(f"Error initializing model: {e}")
+            print("Please make sure you have the required dependencies installed:")
+            print("  pip install torch transformers numpy matplotlib")
+            return False
 
     def generate_with_eeg_control(self, prompt, max_new_tokens=None):
         """
@@ -130,7 +166,13 @@ class EEGEnhancedLLM:
                 )
             
             # Update the KV-cache for next iteration
-            self.cached_past_key_values = outputs.past_key_values
+            # Check if past_key_values exists in the output (depends on model/transformers version)
+            if hasattr(outputs, 'past_key_values'):
+                self.cached_past_key_values = outputs.past_key_values
+            else:
+                # Some models return a different format - either we need to skip caching
+                # or find the key/value cache in another attribute
+                self.cached_past_key_values = None
             
             # Get the newly generated token
             next_token = outputs.sequences[:, -1:]
@@ -213,7 +255,8 @@ def main():
         model_path="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
         simulation_mode=True,
         enable_visualization=True,
-        eeg_debug_output=True  # Enable debug output in standalone mode
+        eeg_debug_output=True,  # Enable debug output in standalone mode
+        max_new_tokens=150
     )
     
     try:

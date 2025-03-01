@@ -250,7 +250,7 @@ class AttentionBasedMoEController:
             return  # No visualization to update
             
         # Update x-axis limits
-        if self.tokens_generated:
+        if self.tokens_generated and len(self.tokens_generated) > 0:
             min_x = max(0, min(self.tokens_generated) - 10)
             max_x = max(self.tokens_generated) + 10
             self.ax1.set_xlim(min_x, max_x)
@@ -258,26 +258,30 @@ class AttentionBasedMoEController:
         
         # Update expert weight lines
         for expert in self.experts:
-            x = list(self.tokens_generated)
-            y = list(self.weight_history[expert])
-            if len(x) == len(y) and len(x) > 0:
-                self.expert_lines[expert].set_data(x, y)
+            if len(self.tokens_generated) > 0 and len(self.weight_history[expert]) > 0:
+                self.expert_lines[expert].set_data(self.tokens_generated, self.weight_history[expert])
         
         # Update attention line
-        x = list(self.tokens_generated)
-        y = list(self.attention_history)
-        if len(x) == len(y) and len(x) > 0:
-            self.attention_line.set_data(x, y)
+        if len(self.tokens_generated) > 0 and len(self.attention_history) > 0:
+            self.attention_line.set_data(self.tokens_generated, self.attention_history)
         
-        # Redraw
-        self.fig.canvas.draw_idle()
-        self.fig.canvas.flush_events()
+        # Try to redraw
+        try:
+            self.fig.canvas.draw_idle()
+            self.fig.canvas.flush_events()
+        except Exception as e:
+            # Just ignore visualization errors - don't let them crash the main process
+            pass
     
     def get_current_expert(self):
-        """Get the currently dominant expert based on weights"""
+        """Get the current dominant expert"""
         if not self.current_weights:
-            return None
-        return max(self.current_weights.items(), key=lambda x: x[1])[0]
+            return "balanced"  # Default to balanced if no weights set
+        try:
+            return max(self.current_weights.items(), key=lambda x: x[1])[0]
+        except ValueError:
+            # In case of empty dict or other errors
+            return "balanced"
     
     def get_expert_stats(self):
         """Get statistics about expert usage"""
