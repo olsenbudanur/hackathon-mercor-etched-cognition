@@ -40,6 +40,7 @@ class EEGEnhancedLLM:
         self.enable_visualization = enable_visualization
         self.eeg_debug_output = eeg_debug_output
         self.max_new_tokens = max_new_tokens
+        self.model_loaded = False
         
         # Initialize the tokenizer first (needed for other components)
         try:
@@ -95,24 +96,37 @@ class EEGEnhancedLLM:
                     self.model_path, 
                     **model_kwargs
                 ).to(self.device)
+                self.model_loaded = True
             except Exception as model_error:
                 print(f"Error with standard loading: {model_error}")
                 # Try with fewer options
                 print("Attempting simplified model loading...")
-                self.model = AutoModelForCausalLM.from_pretrained(
-                    self.model_path, 
-                    low_cpu_mem_usage=True
-                ).to(self.device)
+                try:
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        self.model_path, 
+                        low_cpu_mem_usage=True
+                    ).to(self.device)
+                    self.model_loaded = True
+                except Exception as e:
+                    print(f"Error initializing model: {e}")
+                    print("Running in demo mode without a real model.")
+                    self.model_loaded = False
                 
             # Initialize the cache for KV-caching
             self.cached_past_key_values = None
             
-            print("EEG-Enhanced LLM initialized and ready!")
-            return True
+            if self.model_loaded:
+                print("EEG-Enhanced LLM initialized and ready!")
+            else:
+                print("Warning: Running without a real language model. Responses will be mocked.")
+            
+            return self.model_loaded
         except Exception as e:
             print(f"Error initializing model: {e}")
+            print("Running in demo mode without a real model.")
             print("Please make sure you have the required dependencies installed:")
             print("  pip install torch transformers numpy matplotlib")
+            self.model_loaded = False
             return False
 
     def generate_with_eeg_control(self, prompt, max_new_tokens=100, token_chunk_size=5, token_streamer=None):
@@ -131,6 +145,10 @@ class EEGEnhancedLLM:
         Returns:
             str: The generated text
         """
+        # If model is not loaded, return a mock response
+        if not self.model_loaded:
+            return self._mock_generate_with_eeg(prompt, max_new_tokens, token_chunk_size, token_streamer)
+        
         # Initial attention level
         attention = self.eeg_processor.get_attention_level()
         
@@ -159,7 +177,7 @@ class EEGEnhancedLLM:
             attention = self.eeg_processor.get_attention_level()
             
             # Update MoE controller with new attention level
-            self.moe_controller.update_attention(attention)
+            self.moe_controller.update(attention)
             
             # Set number of tokens to generate in this chunk
             # If we're near the end, only generate remaining tokens
@@ -171,6 +189,9 @@ class EEGEnhancedLLM:
             
             # Generate a chunk of tokens with the MoE routing
             with torch.no_grad():
+                # Create attention mask where all input tokens are attended to
+                attention_mask = torch.ones_like(input_ids)
+                
                 outputs = self.model.generate(
                     input_ids,
                     max_new_tokens=current_chunk_size,
@@ -180,6 +201,7 @@ class EEGEnhancedLLM:
                     use_cache=True,
                     pad_token_id=self.tokenizer.pad_token_id,
                     eos_token_id=self.tokenizer.eos_token_id,
+                    attention_mask=attention_mask,  # Add the attention mask
                 )
             
             # Update cache for next chunk
@@ -244,6 +266,121 @@ class EEGEnhancedLLM:
         
         # Decode full sequence
         return self.tokenizer.decode(outputs.sequences[0], skip_special_tokens=True)
+    
+    def _mock_generate_with_eeg(self, prompt, max_new_tokens=100, token_chunk_size=5, token_streamer=None):
+        """
+        Generate mock text when the model is not available.
+        
+        This simulates the generation process and provides tokens with the appropriate expert labels.
+        
+        Args:
+            prompt (str): The input prompt for generation
+            max_new_tokens (int): Maximum number of new tokens to generate
+            token_chunk_size (int): Number of tokens to generate before re-evaluating attention
+            token_streamer (TokenStreamer): Optional token streamer for frontend visualization
+            
+        Returns:
+            str: The generated mock text
+        """
+        print("Using mock generation as the real model is not available")
+        
+        # Mock responses based on the prompt content
+        mock_responses = {
+            "quantum computing": "Quantum computing uses quantum bits or qubits, which can exist in multiple states simultaneously due to superposition. This allows quantum computers to perform certain calculations much faster than classical computers.",
+            "machine learning": "Machine learning involves algorithms that improve through experience. Key concepts include supervised learning (labeled data), unsupervised learning (unlabeled data), neural networks, decision trees, and reinforcement learning.",
+            "neural networks": "Neural networks are computational systems inspired by the human brain. They consist of layers of neurons that process information and learn patterns from data through adjusting connection weights.",
+            "EEG signals": "EEG (electroencephalography) signals measure electrical activity in the brain. In brain-computer interfaces, they enable direct communication between the brain and external devices, allowing control through thought.",
+            "consciousness": "Consciousness refers to awareness of one's environment and internal states. It involves subjective experiences, self-awareness, and the integration of sensory information into a coherent perception of reality.",
+            "ethical implications": "The ethical implications of AI include concerns about privacy, bias in algorithms, job displacement, autonomous weapons, and the potential for superintelligent systems that could act against human interests."
+        }
+        
+        # Find the most relevant mock response
+        response_text = "This is a simulated response since the language model is not available."
+        for key, value in mock_responses.items():
+            if key in prompt.lower():
+                response_text = value
+                break
+        
+        # Clean the response text to remove any debugging tags
+        response_text = response_text.replace("<think>", "").replace("</think>", "")
+        
+        # Construct the full response
+        # Check if the prompt already has the User/Assistant format
+        if "User:" in prompt:
+            try:
+                full_response = prompt.split("User:")[0] + "User: " + prompt.split("User:")[1]
+                if "Assistant:" not in full_response:
+                    full_response += "\n\nAssistant: " + response_text
+            except IndexError:
+                # Fallback if splitting fails
+                full_response = prompt + "\n\nAssistant: " + response_text
+        else:
+            # Simple prompt without User/Assistant format
+            full_response = prompt + "\n\nAssistant: " + response_text
+        
+        # Initialize tracked token info
+        self.last_tokens = []
+        self.last_experts = []
+        
+        # Stream individual tokens if a streamer is provided
+        if token_streamer:
+            # Break the response into tokens (simplistically by words and spaces)
+            mock_tokens = []
+            for word in response_text.split():
+                mock_tokens.append(word)
+                mock_tokens.append(" ")
+            
+            # Simulate chunks of generation with attention changes
+            chunk_size = token_chunk_size
+            chunks = [mock_tokens[i:i+chunk_size] for i in range(0, len(mock_tokens), chunk_size)]
+            
+            # Track tokens generated
+            tokens_generated = 0
+            
+            for chunk_idx, chunk in enumerate(chunks):
+                # Get current attention level - simulated with sine wave
+                attention = 0.5 + 0.4 * np.sin(chunk_idx / 2)
+                
+                # Update MoE controller with new attention level
+                self.moe_controller.update(attention)
+                
+                # Process each token in the chunk
+                for token in chunk:
+                    # Get current expert based on attention
+                    current_expert = self.moe_controller.get_current_expert()
+                    
+                    # Save token and expert info
+                    self.last_tokens.append(token)
+                    self.last_experts.append(current_expert)
+                    
+                    # Stream token
+                    token_streamer.add_token(token, current_expert)
+                    
+                    # Update stats
+                    tokens_generated += 1
+                    if current_expert in self.generation_stats["expert_usage"]:
+                        self.generation_stats["expert_usage"][current_expert] += 1
+                    else:
+                        self.generation_stats["expert_usage"][current_expert] = 1
+                
+                # Simulate some processing time
+                time.sleep(0.1)
+            
+            # Update generation stats
+            self.generation_stats["tokens_generated"] += tokens_generated
+            
+            # Calculate average attention level
+            attention_values = np.array(self.moe_controller.attention_history)
+            if len(attention_values) > 0:
+                self.generation_stats["avg_attention"] = float(np.mean(attention_values))
+                # Calculate attention distribution
+                self.generation_stats["attention_distribution"] = {
+                    "low": float(np.mean(attention_values < 0.3)),
+                    "medium": float(np.mean((attention_values >= 0.3) & (attention_values <= 0.7))),
+                    "high": float(np.mean(attention_values > 0.7))
+                }
+        
+        return full_response
     
     def get_generation_stats(self):
         """Get statistics about the generation process"""

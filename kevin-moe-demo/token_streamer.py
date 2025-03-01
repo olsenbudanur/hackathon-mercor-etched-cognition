@@ -209,9 +209,18 @@ class TokenStreamer:
             return True
         
         try:
+            # Format data according to the TokenStreamData model in the backend
+            # Each token needs to be a TokenData object with token and expert fields
+            payload = {
+                "tokens": [
+                    {"token": item["token"], "expert": item["expert"]} 
+                    for item in batch
+                ]
+            }
+            
             response = requests.post(
                 f"{self.api_url}/add-tokens",
-                json={"tokens": batch},
+                json=payload,
                 timeout=5.0
             )
             
