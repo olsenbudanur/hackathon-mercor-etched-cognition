@@ -1,4 +1,66 @@
-# Attention is Really All You Need: EEG-Enhanced Language Models
+# EEG-Enhanced Language Model with Mixture-of-Experts (MoE)
+
+This project implements a brain-computer interface that enhances language model generation based on real-time EEG signals. The system uses a Mixture-of-Experts (MoE) approach to dynamically adapt the model's output based on detected attention levels.
+
+## Project Structure
+
+The project is organized with a clear separation between core functionality and demo applications:
+
+### Core Components
+
+- **`main_eeg.py`**: Contains the `EEGEnhancedLLM` class - the core implementation that integrates the language model with EEG processing and the MoE controller. All changes to the MoE functionality should be made here.
+
+- **`eeg_processor.py`**: Handles EEG signal processing, including simulated EEG data generation when real EEG hardware is unavailable.
+
+- **`moe_control.py`**: Implements the Mixture-of-Experts controller that routes between different "expert" parameter settings based on attention levels.
+
+### Demo Applications
+
+- **`streamlined_demo.py`**: A clean, user-friendly interface with manual attention control. Ideal for quick demos and testing. Uses smaller models (default: facebook/opt-350m) for faster loading.
+
+- **`demo.py`**: A more feature-rich demo with visualization options and automated testing features. Defaults to using the DeepSeek model.
+
+### Visualization & Testing
+
+- **`visualize_results.py`**: Visualizes the results of the EEG-enhanced LLM demos.
+- **`tests/`**: Contains test cases for different components of the system.
+
+## Key Improvements
+
+- **KV-Caching with HuggingFace Generate**: The system now uses HuggingFace's `generate()` method with KV-caching for significant performance improvements while preserving the MoE functionality.
+
+- **Modular Design**: Core MoE functionality is centralized in `main_eeg.py`, while demo applications provide different interfaces for testing and demonstration.
+
+## Available Demo Scripts
+
+| Script | Description | Default Model | Features |
+|--------|-------------|---------------|----------|
+| `streamlined_demo.py` | Clean interface with manual attention control | facebook/opt-350m | Chunk-by-chunk generation, manual attention adjustment |
+| `demo.py` | Full-featured demo | deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B | Visualization, statistics, automated demos |
+
+## Usage
+
+### Basic Demo (Smaller Model)
+
+```bash
+python3 streamlined_demo.py
+```
+
+### Full Demo with Larger Model
+
+```bash
+python3 demo.py
+```
+
+### Using a Custom Model
+
+```bash
+python3 streamlined_demo.py --model-path="your-model-path"
+```
+
+## Results
+
+All demo results and visualizations are saved in the `results/` directory.
 
 ## 📑 Overview
 

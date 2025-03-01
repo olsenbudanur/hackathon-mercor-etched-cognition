@@ -70,6 +70,10 @@ class EEGEnhancedLLM:
             "expert_usage": {}
         }
         
+        # Cache for faster generation
+        self.cached_past_key_values = None
+        self.cached_input_ids = None
+        
         # Initialize the EEG processor
         self.eeg_processor.start()
         
@@ -77,7 +81,7 @@ class EEGEnhancedLLM:
 
     def generate_with_eeg_control(self, prompt, max_new_tokens=None):
         """
-        Generate text with EEG-based control
+        Generate text with EEG-based control using HuggingFace's generate method with KV-caching
         
         Args:
             prompt: Input prompt for text generation
@@ -92,25 +96,14 @@ class EEGEnhancedLLM:
         # Prepare input
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
         input_ids = inputs.input_ids
-        
-        # Initialize generation
-        generated_tokens = []
-        attention_values = []
-        
-        # For tracking token-level adaptations
-        tokens_since_check = 0
-        check_interval = 1  # Check attention after every token
         prompt_length = input_ids.shape[1]
         
-        # Token-by-token generation with EEG feedback
-        for _ in range(max_new_tokens):
-            # Get model outputs
-            with torch.no_grad():
-                outputs = self.model(input_ids=input_ids)
-            
-            # Get logits of the last token
-            next_token_logits = outputs.logits[:, -1, :]
-            
+        # Initialize tracking
+        attention_values = []
+        current_text = ""
+        
+        # Process one token at a time to apply MoE control
+        for i in range(max_new_tokens):
             # Get current attention level from EEG
             current_attention = self.eeg_processor.get_attention_level()
             attention_values.append(current_attention)
@@ -118,65 +111,66 @@ class EEGEnhancedLLM:
             # Update MoE controller with current attention
             self.moe_controller.update(current_attention, new_tokens=1)
             
-            # Apply MoE-based logit biasing
-            next_token_logits = self.moe_controller.apply_moe_logit_biasing(next_token_logits)
-            
             # Get dynamic generation parameters from MoE controller
             gen_params = self.moe_controller.get_generation_params()
             
-            # Apply temperature and top-k sampling
-            temperature = gen_params["temperature"]
-            if temperature > 0:
-                next_token_logits = next_token_logits / temperature
+            # Generate a single token with HF generate, leveraging KV-cache
+            with torch.no_grad():
+                outputs = self.model.generate(
+                    input_ids if i == 0 else input_ids[:, -1:],  # Only pass the last token after first iteration
+                    max_new_tokens=1,
+                    do_sample=True,
+                    temperature=gen_params["temperature"],
+                    top_k=gen_params["top_k"],
+                    repetition_penalty=gen_params["repetition_penalty"],
+                    use_cache=True,
+                    past_key_values=self.cached_past_key_values,
+                    return_dict_in_generate=True,
+                    output_scores=True,
+                )
             
-            top_k = gen_params["top_k"]
-            if top_k > 0:
-                # Keep only the top-k logits
-                top_k_logits, top_k_indices = torch.topk(next_token_logits, top_k, dim=-1)
-                
-                # Create a mask for the top-k logits
-                mask = torch.zeros_like(next_token_logits)
-                mask.scatter_(-1, top_k_indices, 1)
-                
-                # Apply the mask
-                next_token_logits = torch.where(mask > 0, next_token_logits, 
-                                               torch.ones_like(next_token_logits) * float("-inf"))
+            # Update the KV-cache for next iteration
+            self.cached_past_key_values = outputs.past_key_values
             
-            # Sample from the distribution
-            probs = torch.nn.functional.softmax(next_token_logits, dim=-1)
-            next_token = torch.multinomial(probs, num_samples=1)
+            # Get the newly generated token
+            next_token = outputs.sequences[:, -1:]
+            
+            # Apply MoE biasing to next token prediction
+            if i < max_new_tokens - 1:  # No need to bias the last token
+                # Get logits for next prediction
+                next_token_logits = outputs.scores[0]
+                
+                # Apply MoE-based logit biasing
+                biased_logits = self.moe_controller.apply_moe_logit_biasing(next_token_logits)
+                
+                # Replace original logits with biased ones for next generation
+                outputs.scores = (biased_logits,) + outputs.scores[1:] if len(outputs.scores) > 1 else (biased_logits,)
+            
+            # Append to input_ids
+            input_ids = torch.cat([input_ids, next_token], dim=-1)
             
             # Check for EOS token
             if next_token.item() == self.tokenizer.eos_token_id:
                 break
                 
-            # Append the generated token
-            generated_tokens.append(next_token.item())
-            input_ids = torch.cat([input_ids, next_token], dim=-1)
-            
             # Track generation stats
             self.generation_stats["tokens_generated"] += 1
-            tokens_since_check += 1
             
-            # Update the display at regular intervals
-            if tokens_since_check >= check_interval:
-                # Get current dominant expert
-                current_expert = self.moe_controller.get_current_expert()
-                
-                # Update expert usage stats
-                if current_expert not in self.generation_stats["expert_usage"]:
-                    self.generation_stats["expert_usage"][current_expert] = 0
-                self.generation_stats["expert_usage"][current_expert] += tokens_since_check
-                
-                # Print debug info
-                next_token_text = self.tokenizer.decode([next_token.item()])
-                tokens_generated = len(generated_tokens)
-                print(f"\rTokens: {tokens_generated}/{max_new_tokens} | " 
-                      f"Attention: {current_attention:.2f} | "
-                      f"Expert: {current_expert} | "
-                      f"Last token: {next_token_text}", end="")
-                
-                tokens_since_check = 0
+            # Get current dominant expert
+            current_expert = self.moe_controller.get_current_expert()
+            
+            # Update expert usage stats
+            if current_expert not in self.generation_stats["expert_usage"]:
+                self.generation_stats["expert_usage"][current_expert] = 0
+            self.generation_stats["expert_usage"][current_expert] += 1
+            
+            # Print debug info
+            next_token_text = self.tokenizer.decode([next_token.item()])
+            tokens_generated = i + 1
+            print(f"\rTokens: {tokens_generated}/{max_new_tokens} | " 
+                  f"Attention: {current_attention:.2f} | "
+                  f"Expert: {current_expert} | "
+                  f"Last token: {next_token_text}", end="")
         
         print()  # New line after generation
         

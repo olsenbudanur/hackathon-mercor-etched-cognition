@@ -221,11 +221,17 @@ def generate_with_thought_pivot(model, tokenizer, input_ids):
     # Current input IDs
     current_ids = input_ids.clone()
     
+    # Store past key values between chunk generations
+    past_kv_cache = None
+    
     # Generate tokens one by one
     for i in range(max_tokens):
         # Get model output for current input
         with torch.no_grad():
-            outputs = model(current_ids, return_dict=True)
+            if past_kv_cache is not None:
+                outputs = model(current_ids, past_key_values=past_kv_cache)
+            else:
+                outputs = model(current_ids)
         
         # Get the next token prediction
         next_token_logits = outputs.logits[:, -1, :]
@@ -268,6 +274,15 @@ def generate_with_thought_pivot(model, tokenizer, input_ids):
         # Stop if we've generated the EOS token
         if next_token_id.item() == tokenizer.eos_token_id:
             break
+
+    # Decode the final result
+    result = tokenizer.decode(current_ids[0], skip_special_tokens=True)
+    
+    print("\n\nFinal result:")
+    print(result)
+
+    # Store past key values between chunk generations
+    past_kv_cache = outputs.past_key_values
 
 if __name__ == "__main__":
     main()
