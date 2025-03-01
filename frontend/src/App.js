@@ -63,7 +63,7 @@ export default function StreamingApp() {
     <div className="min-h-screen bg-gray-50 flex justify-center items-center p-4">
       <div className="w-full max-w-4xl bg-white rounded-lg p-6 shadow-lg border border-gray-200">
         <h1 className="text-3xl font-medium text-gray-800 mb-6 text-center">
-          Streaming Messages
+          Are you paying attention?
         </h1>
         <div className="message-box">
           <pre className="text-base font-mono text-gray-700 whitespace-pre-wrap overflow-auto break-words h-96 p-4 bg-gray-100 rounded-md">
@@ -72,7 +72,7 @@ export default function StreamingApp() {
                 {item.word}
               </span>
             ))}
-            {typing && <span className="typing-effect">|</span>}
+            {typing && <span className="typing-effect"></span>}
           </pre>
         </div>
       </div>

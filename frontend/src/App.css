@@ -17,11 +17,17 @@ pre {
   animation: fadeIn 0.5s ease-out;
 }
 
-@keyframes fadeIn {
-  from {
+@keyframes blink {
+  50% {
     opacity: 0;
   }
-  to {
-    opacity: 1;
-  }
+}
+
+.typing-effect {
+  display: inline-block;
+  width: 10px;
+  height: 20px; /* Adjust the height to match your text */
+  background-color: black; /* You can change the cursor color here */
+  animation: blink 1s step-end infinite; /* 1 second blink interval */
+  vertical-align: middle;
 }
