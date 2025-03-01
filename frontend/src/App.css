@@ -31,3 +31,7 @@ pre {
   animation: blink 1s step-end infinite; /* 1 second blink interval */
   vertical-align: middle;
 }
+
+* {
+  font-family: Georgia, serif;
+}

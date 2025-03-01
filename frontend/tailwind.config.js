@@ -4,7 +4,10 @@ module.exports = {
     './src/**/*.{js,jsx,ts,tsx}',  // This tells Tailwind to look at all JS/JSX/TS/TSX files in your src folder
   ],
   theme: {
-    extend: {},
+    extend: {      
+      fontFamily: {
+      },
   },
   plugins: [],
+  }
 }
