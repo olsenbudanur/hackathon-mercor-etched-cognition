@@ -1,3 +1,11 @@
+"""
+EEG Signal Processor
+-------------------
+This module provides EEG signal processing capabilities for the language model demo.
+It can either process real EEG signals from a Muse headset or simulate attention
+signals for demonstration purposes.
+"""
+
 import numpy as np
 import time
 import threading
@@ -5,6 +13,8 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from collections import deque
 import random  # For simulation mode
+import requests
+import json
 
 # Try to import the Muse libraries, but provide fallback if not available
 try:
@@ -14,6 +24,204 @@ try:
 except ImportError:
     print("Muse libraries not found, running in simulation mode")
     MUSE_AVAILABLE = False
+
+class HTTPEEGProcessor:
+    """
+    Process EEG signals from an HTTP endpoint rather than directly from the Muse headset.
+    Provides the same interface as the EEGProcessor class for compatibility.
+    """
+    
+    def __init__(self, api_url="https://f424-216-201-226-138.ngrok-free.app/latest_value", 
+                 debug_output=False, smoothing_factor=0.8):
+        """
+        Initialize the HTTP EEG processor.
+        
+        Args:
+            api_url (str): URL to fetch attention values from
+            debug_output (bool): Whether to print debug information
+            smoothing_factor (float): Factor for exponential moving average (0-1)
+        """
+        self.api_url = api_url
+        self.debug_output = debug_output
+        self.smoothing_factor = smoothing_factor
+        
+        # State variables
+        self.running = False
+        self.current_attention = 0.5  # Default middle attention
+        self.smoothed_attention = 0.5
+        
+        # Metrics tracking
+        self.attention_history = deque(maxlen=1000)
+        self.fetch_times = deque(maxlen=100)
+        self.metrics = {
+            "mean_attention": 0.5,
+            "std_attention": 0.0,
+            "num_low_attention_periods": 0,
+            "num_high_attention_periods": 0,
+            "successful_fetches": 0,
+            "failed_fetches": 0,
+            "avg_fetch_time_ms": 0
+        }
+        
+        # Thread for continuous fetching
+        self.fetch_thread = None
+        self.lock = threading.Lock()
+    
+    def start(self):
+        """Start the EEG processor fetch thread"""
+        if self.running:
+            return
+            
+        self.running = True
+        self.fetch_thread = threading.Thread(target=self._fetch_loop, daemon=True)
+        self.fetch_thread.start()
+        
+        if self.debug_output:
+            print(f"HTTP EEG processor started, fetching from {self.api_url}")
+    
+    def stop(self):
+        """Stop the EEG processor fetch thread"""
+        self.running = False
+        if self.fetch_thread:
+            self.fetch_thread.join(timeout=1.0)
+        
+        if self.debug_output:
+            print("HTTP EEG processor stopped")
+    
+    def _fetch_loop(self):
+        """Background thread to continuously fetch attention values"""
+        last_high = False
+        last_low = False
+        
+        while self.running:
+            try:
+                start_time = time.time()
+                
+                # Fetch attention value from API
+                headers = {"ngrok-skip-browser-warning": "69420"}
+                response = requests.get(self.api_url, headers=headers, timeout=2.0)
+                
+                if response.status_code == 200:
+                    # Try to parse as JSON first
+                    try:
+                        data = response.json()
+                        
+                        # Handle specific format from ngrok API: {"shared_var": X}
+                        if isinstance(data, dict) and "shared_var" in data:
+                            expert_value = int(data["shared_var"])
+                            # Map expert values to attention levels:
+                            # 0 = simple/low attention (0.2)
+                            # 1 = balanced/medium attention (0.5) 
+                            # 2 = complex/high attention (0.8)
+                            attention_map = {0: 0.2, 1: 0.5, 2: 0.8}
+                            attention = attention_map.get(expert_value, 0.5)
+                            
+                            if self.debug_output:
+                                print(f"HTTP EEG: Mapped expert value {expert_value} to attention {attention:.2f}")
+                        
+                        # Check for other known formats
+                        elif isinstance(data, dict) and "attention" in data:
+                            attention = float(data["attention"])
+                        elif isinstance(data, dict) and "value" in data:
+                            attention = float(data["value"])
+                        else:
+                            # Try to get the first numeric value
+                            for key, value in data.items():
+                                if isinstance(value, (int, float)):
+                                    attention = float(value)
+                                    # If value is between 0-2, assume it's an expert indicator
+                                    if 0 <= value <= 2:
+                                        attention_map = {0: 0.2, 1: 0.5, 2: 0.8}
+                                        attention = attention_map.get(int(value), 0.5)
+                                    break
+                            else:
+                                attention = float(data) if isinstance(data, (int, float)) else 0.5
+                    except json.JSONDecodeError:
+                        # Not JSON, try to parse as plain text
+                        try:
+                            attention = float(response.text.strip())
+                        except ValueError:
+                            attention = 0.5
+                    
+                    # Normalize to [0, 1] if needed (skip for values we've already mapped)
+                    if attention > 1.0 and not any(attention == val for val in [0.2, 0.5, 0.8]):
+                        attention = attention / 100.0
+                    
+                    # Clamp to valid range
+                    attention = max(0.0, min(1.0, attention))
+                    
+                    # Update metrics
+                    self.metrics["successful_fetches"] += 1
+                    
+                    # Apply smoothing
+                    with self.lock:
+                        if len(self.attention_history) == 0:
+                            self.smoothed_attention = attention
+                        else:
+                            self.smoothed_attention = (
+                                self.smoothing_factor * self.smoothed_attention + 
+                                (1 - self.smoothing_factor) * attention
+                            )
+                        self.current_attention = self.smoothed_attention
+                        self.attention_history.append(self.current_attention)
+                    
+                    # Track high/low attention periods
+                    if self.current_attention > 0.7 and not last_high:
+                        self.metrics["num_high_attention_periods"] += 1
+                        last_high = True
+                    else:
+                        last_high = False
+                        
+                    if self.current_attention < 0.3 and not last_low:
+                        self.metrics["num_low_attention_periods"] += 1
+                        last_low = True
+                    else:
+                        last_low = False
+                    
+                    # Calculate attention statistics
+                    if len(self.attention_history) > 0:
+                        attention_array = np.array(list(self.attention_history))
+                        self.metrics["mean_attention"] = float(np.mean(attention_array))
+                        self.metrics["std_attention"] = float(np.std(attention_array))
+                    
+                    if self.debug_output:
+                        print(f"HTTP EEG: Attention = {self.current_attention:.2f}")
+                
+                else:
+                    self.metrics["failed_fetches"] += 1
+                    if self.debug_output:
+                        print(f"HTTP EEG: Failed to fetch data, status code {response.status_code}")
+            
+            except Exception as e:
+                self.metrics["failed_fetches"] += 1
+                if self.debug_output:
+                    print(f"HTTP EEG: Error fetching data: {str(e)}")
+            
+            # Calculate fetch time
+            fetch_time = (time.time() - start_time) * 1000  # in ms
+            self.fetch_times.append(fetch_time)
+            if len(self.fetch_times) > 0:
+                self.metrics["avg_fetch_time_ms"] = sum(self.fetch_times) / len(self.fetch_times)
+            
+            # Sleep to avoid overwhelming the API
+            time.sleep(0.5)
+    
+    def get_attention_level(self):
+        """Get the current attention level (0-1)"""
+        with self.lock:
+            return self.current_attention
+    
+    def get_raw_attention(self):
+        """Get the current raw attention level (identical to smoothed in HTTP version)"""
+        return self.get_attention_level()
+    
+    def get_attention_metrics(self):
+        """Get metrics about attention levels over time"""
+        return self.metrics
+    
+    def get_latest_eeg_data(self):
+        """Placeholder for backwards compatibility with EEGProcessor"""
+        return None
 
 class EEGProcessor:
     """Process EEG signals from Muse headset and calculate attention metrics"""
@@ -326,7 +534,6 @@ class EEGProcessor:
         ani = FuncAnimation(self.fig, update, interval=100, blit=True)
         plt.tight_layout()
         plt.show()
-
 
 # Example usage
 if __name__ == "__main__":

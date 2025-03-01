@@ -1,0 +1,43 @@
+/* Token styling */
+.token-simple {
+  color: #0066cc;
+}
+
+.token-balanced {
+  color: #009933;
+}
+
+.token-complex {
+  color: #cc3300;
+}
+
+/* Space token styling */
+.token-space {
+  display: inline-block;
+  width: 0.25em; /* Width of a space */
+  height: 1em;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+/* Token container styling */
+#token-container {
+  font-family: 'Roboto', sans-serif;
+  font-size: 1.2rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+}
+
+/* Ensure proper word wrapping */
+span {
+  display: inline;
+} 
