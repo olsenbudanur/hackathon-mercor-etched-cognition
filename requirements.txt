@@ -1,5 +1,0 @@
-torch
-transformers
-accelerate
-bitsandbytes  # Optional for model quantization (reduces VRAM usage)
-huggingface_hub  # Optional for manual model downloading

@@ -1,0 +1,13 @@
+torch>=1.13.0
+transformers>=4.26.0
+numpy>=1.20.0
+matplotlib>=3.5.0
+tqdm>=4.64.0
+scipy>=1.8.0
+keyboard>=0.13.5  # For interactive control in demo
+# Optional: For real EEG data
+# muselsl>=2.0.0
+# pylsl>=1.16.0
+accelerate
+bitsandbytes  # Optional for model quantization (reduces VRAM usage)
+huggingface_hub  # Optional for manual model downloading
