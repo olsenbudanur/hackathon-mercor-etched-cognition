@@ -68,17 +68,26 @@ from eeg_processor import EEGProcessor, HTTPEEGProcessor
 from main_eeg import EEGEnhancedLLM
 from token_streamer import TokenStreamer
 
-# Demo prompts to showcase capabilities
+# Shortened menu options for display
+DEMO_MENU_OPTIONS = [
+    "Advertisement for Anthropic's Claude AI: Safety and ethical AI",
+    "Advertisement for Northflank's DevOps platform: CI/CD automation",
+    "Advertisement for Vercel's web platform: Speed and developer experience",
+    "Advertisement for Cursor's AI code editor: Productivity features",
+    "Advertisement for Claude AI assistant: Helpful and honest assistance"
+]
+
+# Full prompts that include the [GENERATE AD NOW] marker
 DEMO_PROMPTS = [
-    "Ad for Anthropic's AI models: safety, interpretability, and ethical AI practices.",
+    "Write DIRECT ADVERTISEMENT TEXT for Anthropic's Claude AI models. Focus on: safety, interpretability, ethical AI practices, and human-centered design. Highlight how Claude provides helpful, harmless, and honest AI assistance with advanced reasoning capabilities. [GENERATE AD NOW]",
     
-    "Ad for Northflank's DevOps automation platform: simplifies CI/CD for cloud-native applications.",
+    "Write DIRECT ADVERTISEMENT TEXT for Northflank's DevOps automation platform. Focus on: simplifying CI/CD pipelines for cloud-native applications, seamless integration with popular tools, autoscaling capabilities, and cost optimization features. Highlight how it improves developer productivity. [GENERATE AD NOW]",
     
-    "Ad for Vercel's web development platform: speed, reliability, and developer experience.",
+    "Write DIRECT ADVERTISEMENT TEXT for Vercel's web development platform. Focus on: speed, reliability, global CDN, developer experience, Next.js integration, preview deployments, and analytics. Highlight how it helps build and deploy web applications with zero configuration. [GENERATE AD NOW]",
     
-    "Ad for Cursor's AI-powered code editor: features for developers.",
+    "Write DIRECT ADVERTISEMENT TEXT for Cursor's AI-powered code editor. Focus on: AI pair programming, code completion, bug fixing, explanation features, and improved developer productivity. Highlight how it helps developers write better code faster with AI assistance. [GENERATE AD NOW]",
     
-    "Ad for Claude AI assistant: helpful, harmless, and honest approach.",
+    "Write DIRECT ADVERTISEMENT TEXT for Claude AI assistant. Focus on: helpfulness, harmlessness, honesty, natural conversational abilities, complex reasoning, and creative content generation. Highlight how it enhances productivity while maintaining high safety standards. [GENERATE AD NOW]"
 ]
 
 # Available simulation patterns for the demo
@@ -98,14 +107,14 @@ SIMULATION_PATTERNS = {
 }
 
 def run_interactive_demo(
-    model_path="Qwen/Qwen2.5-Math-1.5B",
+    model_path="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
     use_http_eeg=False, 
     eeg_url=None,
     token_chunk_size=1,
     backend_url="http://localhost:8000",
     enable_visualization=True,
     debug_eeg=False,
-    max_new_tokens=150,
+    max_new_tokens=1000,
     simulation_pattern=None,
     non_interactive=False
 ):
@@ -174,9 +183,6 @@ def run_interactive_demo(
         llm.eeg_processor = eeg_processor
         llm.eeg_processor.start()
     
-    # Use global demo prompts
-    demo_prompts = DEMO_PROMPTS
-    
     print("\nSystem ready! Using token chunk size of", token_chunk_size)
     if llm.simulation_mode:
         print("Attention level is following a sine pattern.")
@@ -187,15 +193,16 @@ def run_interactive_demo(
     # If non-interactive mode is enabled, just run a demo prompt and exit
     if non_interactive:
         print("\nRunning in non-interactive mode with demo prompt...")
-        prompt = demo_prompts[1]  # Use the machine learning prompt
-        print(f"\nPrompt: {prompt}\n")
+        menu_option = DEMO_MENU_OPTIONS[1]  # Use the second menu option
+        prompt = DEMO_PROMPTS[1]  # Use the second full prompt
+        print(f"\nSelected: {menu_option}\n")
         response = llm.generate_with_eeg_control(
             prompt,
             max_new_tokens=max_new_tokens,
             token_chunk_size=token_chunk_size,
             token_streamer=token_streamer
         )
-        print("\nFinal response:")
+        print("\nResponse:")
         print(response)
         
         # Clean up
@@ -225,14 +232,17 @@ def run_interactive_demo(
                 running = False
             elif choice == '1':
                 print("\nDemo prompts:")
-                for i, prompt in enumerate(demo_prompts):
-                    print(f"  {i+1}. {prompt}")
+                for i, menu_option in enumerate(DEMO_MENU_OPTIONS):
+                    print(f"  {i+1}. {menu_option}")
                 
                 try:
                     prompt_idx = int(input("\nSelect a prompt (1-6): ")) - 1
-                    if 0 <= prompt_idx < len(demo_prompts):
-                        prompt = demo_prompts[prompt_idx]
-                        print(f"\nPrompt: {prompt}\n")
+                    if 0 <= prompt_idx < len(DEMO_PROMPTS):
+                        # Use the shortened menu option for display but the full prompt for generation
+                        menu_option = DEMO_MENU_OPTIONS[prompt_idx]
+                        prompt = DEMO_PROMPTS[prompt_idx]
+                        print(f"\nSelected: {menu_option}")
+                        
                         response = llm.generate_with_eeg_control(
                             prompt,
                             max_new_tokens=max_new_tokens,
@@ -266,8 +276,11 @@ def run_interactive_demo(
                 
             elif choice == '3':
                 print("\nRunning automated demo...")
-                for i, prompt in enumerate(demo_prompts[:2]):  # Just run first two for automated demo
-                    print(f"\nPrompt {i+1}: {prompt}\n")
+                # Just run first two for automated demo
+                for i in range(2):
+                    menu_option = DEMO_MENU_OPTIONS[i]
+                    prompt = DEMO_PROMPTS[i]
+                    print(f"\nDemo {i+1}: {menu_option}\n")
                     response = llm.generate_with_eeg_control(
                         prompt,
                         max_new_tokens=max_new_tokens,
@@ -277,7 +290,7 @@ def run_interactive_demo(
                     print("\nResponse:")
                     print(response)
                     print("\n" + "-" * 40)
-                    
+                
             elif choice == '4':
                 stats = llm.get_generation_stats()
                 print("\nSystem Statistics:")
@@ -352,7 +365,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run the EEG-Enhanced LLM Demo")
     
     # Model arguments
-    parser.add_argument("--model-path", default="Qwen/Qwen2.5-Math-1.5B", 
+    parser.add_argument("--model-path", default="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", 
                       help="Path to the language model")
     
     # EEG input options

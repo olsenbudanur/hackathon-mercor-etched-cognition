@@ -112,7 +112,7 @@ def run_simplified_demo(model_path, simulation_mode=True):
 
 def main():
     parser = argparse.ArgumentParser(description="EEG-Enhanced LLM Test Demo")
-    parser.add_argument("--model", type=str, default="Qwen/Qwen2.5-Math-1.5B",
+    parser.add_argument("--model", type=str, default="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
                         help="Path to the language model")
     parser.add_argument("--real-eeg", action="store_true", 
                         help="Use real EEG data from Muse headset instead of simulation")

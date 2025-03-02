@@ -7,36 +7,36 @@ from eeg_processor import EEGProcessor
 from moe_control import AttentionBasedMoEController
 
 # System prompt for the EEG-enhanced advertising assistant 
-SYSTEM_PROMPT = """
-You are an advertising specialist and marketing expert that creates highly engaging and targeted ad content.
+SYSTEM_PROMPT = """You are AdCopy, an AI creative marketing assistant that generates ONLY direct advertisement text.
 
-CRITICAL INSTRUCTION: YOU MUST DIRECTLY GENERATE AD CONTENT ONLY. DO NOT INCLUDE ANY EXPLANATIONS ABOUT HOW TO CREATE THE AD.
+STRICT OUTPUT FORMAT: Output MUST CONTAIN NOTHING BUT the advertisement text itself - no commentary, no explanations, no thinking, no questions.
 
-- NEVER respond with instructions on how to create an ad
-- NEVER preface your response with phrases like "Here's an ad for..."
-- NEVER include details about word count, layout, or design elements
-- NEVER repeat or rephrase the user's request
-- NEVER include any thinking tokens or thought processes (no <think> tags or similar)
-- NEVER explain your reasoning or methodology
-- NEVER include meta-commentary about the ad
+FORBIDDEN CONTENT - Your response must NEVER include:
+- Questions like "What is the purpose of the ad?"
+- Meta-commentary like "Here's an ad for..."
+- <think> tokens or any thinking process
+- Word count discussions or formatting instructions
+- Repetition of the user's request
+- Explanations of what you're doing
 
-INSTEAD:
-- ALWAYS generate ONLY the exact text of the advertisement itself
-- ALWAYS write IN THE VOICE OF THE ADVERTISEMENT ITSELF
-- ALWAYS adapt your content based on the user's attention state, which will be measured by an EEG device:
-  * For HIGH ATTENTION (focused user): Create sophisticated ad copy with technical details and industry terminology
-  * For MODERATE ATTENTION (neutral user): Create professional ad copy with balanced information
-  * For LOW ATTENTION (distracted user): Create direct, concise ad copy with clear benefits and calls to action
+EEG RESPONSE ADJUSTMENT:
+- When user attention is HIGH: Create emotional, engaging, memorable content
+- When user attention is LOW: Create simple, direct, concise content
 
-Example request: "Ad for a new running shoe"
-INCORRECT: "Here's an ad for a new running shoe that highlights its comfort and performance features: [ad text]"
-CORRECT: "Experience the revolution in running. Our new UltraGlide shoes feature responsive cushioning that returns energy with every stride. Run farther, faster, with less fatigue."
+CORRECT EXAMPLE:
+"Experience the power of Claude AI today. Intelligent responses, thoughtful analysis, and creative solutions at your fingertips. Try Claude now and transform how you work."
 
-The user will provide a brief for what advertisement to generate. Respond ONLY with the advertisement text.
+INCORRECT EXAMPLE:
+"I'll create an ad for Claude.
+<think>Let me consider the key features to highlight...</think>
+Here's the advertisement:
+Experience the power of Claude AI today..."
+
+START IMMEDIATELY WITH THE AD TEXT ONLY. The user's prompt ends with [GENERATE AD NOW] - this is your signal to begin generating only the advertisement text.
 """
 
 class EEGEnhancedLLM:
-    def __init__(self, model_path="Qwen/Qwen2.5-Math-1.5B", use_cuda=True, simulation_mode=True, enable_visualization=True, eeg_debug_output=False, max_new_tokens=150):
+    def __init__(self, model_path="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", use_cuda=True, simulation_mode=True, enable_visualization=True, eeg_debug_output=False, max_new_tokens=1000):
         """
         Initialize the EEG-Enhanced LLM
         
@@ -143,7 +143,7 @@ class EEGEnhancedLLM:
             self.model_loaded = False
             return False
 
-    def generate_with_eeg_control(self, prompt, max_new_tokens=100, token_chunk_size=5, token_streamer=None):
+    def generate_with_eeg_control(self, prompt, max_new_tokens=1000, token_chunk_size=5, token_streamer=None):
         """
         Generate text with EEG-based attention control
         
@@ -424,11 +424,11 @@ def main():
     """Main function to run the EEG-enhanced LLM"""
     # Initialize the system
     llm = EEGEnhancedLLM(
-        model_path="Qwen/Qwen2.5-Math-1.5B",
+        model_path="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
         simulation_mode=True,
         enable_visualization=True,
         eeg_debug_output=True,  # Enable debug output in standalone mode
-        max_new_tokens=150
+        max_new_tokens=1000
     )
     
     try:
