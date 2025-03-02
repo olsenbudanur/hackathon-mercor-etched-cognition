@@ -1,0 +1,29 @@
+# Backend dependencies
+fastapi==0.95.1
+uvicorn==0.22.0
+pydantic==1.10.7
+
+# EEG processing dependencies
+numpy==1.24.3
+matplotlib==3.7.1
+scipy==1.10.1
+pylsl==1.16.0
+
+# Language model dependencies
+torch==2.0.0
+transformers==4.28.1
+tqdm==4.65.0
+accelerate==0.19.0
+bitsandbytes==0.37.2
+huggingface_hub==0.14.1
+
+# Testing dependencies
+pytest==7.3.1
+requests==2.30.0
+
+# Optional: For real EEG data
+# muselsl>=2.0.0
+
+# Interactive demo dependencies
+keyboard==0.13.5
+nest_asyncio==1.5.6

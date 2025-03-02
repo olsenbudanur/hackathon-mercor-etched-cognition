@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # Backend service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+      - ./eeg:/app/eeg
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - eeg-network
+
+  # Frontend service
+  frontend:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_BACKEND_URL=http://localhost:8000
+    command: sh -c "npm install && npm start"
+    depends_on:
+      - backend
+    networks:
+      - eeg-network
+
+  # Demo service (optional)
+  demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./kevin-moe-demo:/app/kevin-moe-demo
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python kevin-moe-demo/demo.py
+    depends_on:
+      - backend
+    networks:
+      - eeg-network
+
+networks:
+  eeg-network:
+    driver: bridge
