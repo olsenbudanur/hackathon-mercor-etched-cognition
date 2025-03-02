@@ -63,7 +63,7 @@ def compute_band_power(data, fs, band):
     """
     freqs, psd = welch(data, fs, nperseg=fs)
     band_mask = (freqs >= band[0]) & (freqs <= band[1])
-    return np.trapz(psd[band_mask], freqs[band_mask])
+    return np.trapezoid(psd[band_mask], freqs[band_mask])
 
 # Resolve EEG stream
 print("Looking for an EEG stream...")
