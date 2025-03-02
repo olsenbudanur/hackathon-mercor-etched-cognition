@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 from pylsl import StreamInlet, resolve_byprop
 import time
 from scipy.signal import welch
+from scipy.integrate import trapz
 from IPython.display import clear_output
 
 # Parameters
@@ -62,7 +63,7 @@ def compute_band_power(data, fs, band):
         ```
     """
     freqs, psd = welch(data, fs, nperseg=fs)
-    return np.trapz(psd[(freqs >= band[0]) & (freqs <= band[1])])
+    return trapz(psd[(freqs >= band[0]) & (freqs <= band[1])], freqs[(freqs >= band[0]) & (freqs <= band[1])])
 
 # Resolve EEG stream
 print("Looking for an EEG stream...")
