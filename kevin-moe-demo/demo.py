@@ -70,12 +70,15 @@ from token_streamer import TokenStreamer
 
 # Demo prompts to showcase capabilities
 DEMO_PROMPTS = [
-    "Explain quantum computing to me.",
-    "What are the key concepts in machine learning?",
-    "How do neural networks work?",
-    "What is the significance of EEG signals in brain-computer interfaces?",
-    "Explain the concept of consciousness.",
-    "What are the ethical implications of AI?",
+    "Ad for Anthropic's AI models: safety, interpretability, and ethical AI practices.",
+    
+    "Ad for Northflank's DevOps automation platform: simplifies CI/CD for cloud-native applications.",
+    
+    "Ad for Vercel's web development platform: speed, reliability, and developer experience.",
+    
+    "Ad for Cursor's AI-powered code editor: features for developers.",
+    
+    "Ad for Claude AI assistant: helpful, harmless, and honest approach.",
 ]
 
 # Available simulation patterns for the demo
@@ -171,15 +174,8 @@ def run_interactive_demo(
         llm.eeg_processor = eeg_processor
         llm.eeg_processor.start()
     
-    # Set demo prompts
-    demo_prompts = [
-        "Explain quantum computing to me.",
-        "What are the key concepts in machine learning?",
-        "How do neural networks work?",
-        "What is the significance of EEG signals in brain-computer interfaces?",
-        "Explain the concept of consciousness.",
-        "What are the ethical implications of AI?"
-    ]
+    # Use global demo prompts
+    demo_prompts = DEMO_PROMPTS
     
     print("\nSystem ready! Using token chunk size of", token_chunk_size)
     if llm.simulation_mode:

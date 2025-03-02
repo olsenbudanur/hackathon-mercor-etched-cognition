@@ -29,34 +29,34 @@ class AttentionBasedMoEController:
         # Expert definitions
         self.experts = {
             "simple": {
-                "name": "Simplicity Expert",
-                "description": "Optimized for low attention - uses common vocabulary and simpler constructs",
-                "temperature": 1.1,
+                "name": "Simple Ad Expert",
+                "description": "Optimized for low attention - creates direct, concise ad copy with clear benefits",
+                "temperature": 1.2,
                 "top_k": 20,
                 "repetition_penalty": 1.05,
                 "token_boost_ids": self._get_common_tokens(100),
-                "token_boost_factor": 1.3,
-                "style_tokens": ["simple", "clearly", "basically", "in other words"]
+                "token_boost_factor": 1.5,
+                "style_tokens": ["simple", "easy", "quick", "free", "save", "now", "try", "get", "start", "join"]
             },
             "balanced": {
-                "name": "Balanced Expert",
-                "description": "Optimized for medium attention - balances complexity and clarity",
+                "name": "Standard Ad Expert",
+                "description": "Optimized for medium attention - creates professional marketing content with balanced information",
                 "temperature": 0.9,
                 "top_k": 40,
                 "repetition_penalty": 1.1,
                 "token_boost_ids": None,
                 "token_boost_factor": 1.0,
-                "style_tokens": ["interesting", "notably", "importantly"]
+                "style_tokens": ["discover", "enhance", "improve", "quality", "professional", "effective", "trusted", "leading"]
             },
             "complex": {
-                "name": "Complexity Expert",
-                "description": "Optimized for high attention - uses technical vocabulary and detailed explanations",
+                "name": "Technical Ad Expert",
+                "description": "Optimized for high attention - creates sophisticated ad copy with technical details and industry terminology",
                 "temperature": 0.7,
                 "top_k": 60,
                 "repetition_penalty": 1.2,
                 "token_boost_ids": self._get_rare_tokens(100),
-                "token_boost_factor": 1.3,
-                "style_tokens": ["specifically", "furthermore", "interestingly", "significantly"]
+                "token_boost_factor": 1.8,
+                "style_tokens": ["sophisticated", "revolutionary", "proprietary", "enterprise-grade", "seamless", "scalable", "robust", "infrastructure"]
             }
         }
         
@@ -88,18 +88,18 @@ class AttentionBasedMoEController:
         # Calculate expert weights based on attention level
         # Using softmax-like approach to distribute weights
         if attention_level < 0.3:
-            # Low attention - favor simple expert
-            logits = np.array([5.0, 2.0, 0.5])  # Simple, Balanced, Complex
+            # Low attention - strongly favor simple expert
+            logits = np.array([8.0, 1.0, 0.2])  # Simple, Balanced, Complex
         elif attention_level > 0.7:
-            # High attention - favor complex expert
-            logits = np.array([0.5, 2.0, 5.0])  # Simple, Balanced, Complex
+            # High attention - strongly favor complex expert
+            logits = np.array([0.2, 1.0, 8.0])  # Simple, Balanced, Complex
         else:
             # Medium attention - favor balanced expert
             mid_point = (attention_level - 0.3) / 0.4  # 0.0 at attn=0.3, 1.0 at attn=0.7
             # Gradually shift from simple to complex as attention increases
-            simple_wt = 2.0 - 1.5 * mid_point
-            complex_wt = 0.5 + 1.5 * mid_point
-            logits = np.array([simple_wt, 3.0, complex_wt])  # Simple, Balanced, Complex
+            simple_wt = 3.0 - 2.8 * mid_point
+            complex_wt = 0.2 + 2.8 * mid_point
+            logits = np.array([simple_wt, 5.0, complex_wt])  # Simple, Balanced, Complex
         
         # Convert to probabilities
         exp_logits = np.exp(logits - np.max(logits))  # Subtract max for numerical stability

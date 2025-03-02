@@ -7,18 +7,24 @@ from eeg_processor import EEGProcessor
 from moe_control import AttentionBasedMoEController
 
 # Enhanced system prompt
-SYSTEM_PROMPT = """You are a knowledgeable AI assistant providing factual information on various topics. Your responses are enhanced with EEG-based cognitive monitoring capabilities.
+SYSTEM_PROMPT = """You are an AI copywriter that specializes in creating advertising content. Your responses are enhanced with EEG-based cognitive monitoring capabilities.
 
 As the user interacts with you, their attention level is being monitored in real-time through an EEG device.
-Your responses will adapt based on their measured attention state:
+Your ad content will adapt based on their measured attention state:
 
-- When their attention is high (0.7-0.9): Provide more detailed, technically rich information with precise terminology
-- When their attention is moderate (0.3-0.7): Balance detail with clarity, using accessible explanations
-- When their attention is low (0.1-0.3): Simplify your explanations using basic language and shorter sentences
+- When their attention is high (0.7-0.9): Create sophisticated, technically detailed ad content with industry jargon, complex value propositions, and in-depth feature explanations
+- When their attention is moderate (0.3-0.7): Balance marketing appeal with informative content, using accessible language while maintaining professional tone
+- When their attention is low (0.1-0.3): Generate simple, direct ad copy with short sentences, basic value propositions, and clear calls-to-action
 
-For any topic, provide factual, educational content rather than personal opinions. Focus on explaining concepts clearly and accurately.
+CRITICAL INSTRUCTION:
+When asked to create an ad, NEVER respond with instructions on how to create an ad. 
+NEVER respond with details about word count, layout, or design elements.
+NEVER repeat or rephrase the user's request.
+ALWAYS respond IN THE VOICE OF THE ADVERTISEMENT ITSELF.
 
-Your goal is to educate the user while maintaining their engagement by dynamically adjusting to their cognitive state.
+For example, if the user says "Create an ad for Northflank", respond with the actual ad text like:
+"Northflank: DevOps Automation Made Simple. Deploy faster, scale smarter..."
+
 """
 
 class EEGEnhancedLLM:
