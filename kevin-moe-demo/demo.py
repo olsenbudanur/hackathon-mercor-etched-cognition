@@ -98,7 +98,7 @@ SIMULATION_PATTERNS = {
 }
 
 def run_interactive_demo(
-    model_path="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+    model_path="Qwen/Qwen2.5-Math-1.5B",
     use_http_eeg=False, 
     eeg_url=None,
     token_chunk_size=1,
@@ -352,7 +352,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run the EEG-Enhanced LLM Demo")
     
     # Model arguments
-    parser.add_argument("--model-path", default="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", 
+    parser.add_argument("--model-path", default="Qwen/Qwen2.5-Math-1.5B", 
                       help="Path to the language model")
     
     # EEG input options
